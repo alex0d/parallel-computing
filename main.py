@@ -1,24 +1,23 @@
 import concurrent.futures
-from math import ceil, exp, sin
-from random import uniform
+from math import ceil
 from time import time
 
-import scipy.integrate as integrate
-import sympy
-from sympy.utilities.lambdify import lambdify, implemented_function
 import loky
+import openturns as ot
+import sympy
+from sympy.utilities.lambdify import lambdify
 
-TOTAL_ITERATIONS = 50_000_000
-INTEGRATE_FROM = 0
-INTEGRATE_TO = 28
+
+TOTAL_ITERATIONS = 10_000_000
 
 
-def monte_carlo(f, a: int, b: int, iters: int = 1000000) -> float:
+def monte_carlo(f, a: int, b: int, iters: int) -> float:
     """ Return sum of the values of function `f` from `a` to `b` over `iters` iterations.
     """
+    sequence = ot.SobolSequence(1).generate(iters)
     f_sum = 0
-    for i in range(iters):
-        x = uniform(a, b)
+    for r in sequence:
+        x = a + (b - a) * r[0]
         f_sum += f(x)
     return f_sum
 
@@ -26,29 +25,29 @@ def monte_carlo(f, a: int, b: int, iters: int = 1000000) -> float:
 if __name__ == "__main__":
     f = input("Подынтегральная функция: ")
     f = sympy.simplify(f)
+    f = lambdify(['x'], f)
 
-    kernels = int(input("Введите количество запускаемых потоков (0 - авто): ")) or loky.cpu_count()
-    TOTAL_ITERATIONS = ceil(TOTAL_ITERATIONS / kernels) * kernels
-    per_kernel = TOTAL_ITERATIONS // kernels
+    integrate_from, integrate_to = map(int, input("Границы интегрирования (a, b): ").split())
 
-    f_lambda = lambdify(['x'], f)
+    processes = int(input("Количество запускаемых процессов (0 - авто): ")) or loky.cpu_count()
+    TOTAL_ITERATIONS = ceil(TOTAL_ITERATIONS / processes) * processes
+    per_process = TOTAL_ITERATIONS // processes
 
-    executor = loky.get_reusable_executor(max_workers=kernels)
-    start = time()
-    # executor.map(monte_carlo, [(f_lambda, INTEGRATE_FROM, INTEGRATE_TO, per_kernel) for i in range(kernels)])
-    # executor.shutdown(wait=True)
+    executor = loky.get_reusable_executor(processes)
+
     res = 0
     futures = []
-    for i in range(8):
-        futures.append(executor.submit(monte_carlo, f=f_lambda, a=INTEGRATE_FROM, b=INTEGRATE_TO, iters=per_kernel))
+
+    print(f"Вычисление запущено...")
+    start = time()
+    for i in range(processes):
+        futures.append(executor.submit(monte_carlo, f=f, a=integrate_from, b=integrate_to, iters=per_process))
+
     for future in concurrent.futures.as_completed(futures):
         res += future.result()
-
     end = time()
 
-    # total_sum = sum(results)
-    average_result = (INTEGRATE_TO - INTEGRATE_FROM) * (res / TOTAL_ITERATIONS)
+    average_result = (integrate_to - integrate_from) * (res / TOTAL_ITERATIONS)
 
-    print(f"Average definite integral = {average_result}")
-    # print(f"True definite integral = {integrate.quad(f, INTEGRATE_FROM, INTEGRATE_TO)[0]}")
-    print(f"\nCPUs = {kernels}. Total time: {end - start}")
+    print(f"\nОпределённый интеграл = {average_result}")
+    print(f"Процессов: {processes}. Общее время вычисления: {(end - start):.3f} с")
