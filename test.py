@@ -46,6 +46,4 @@ if __name__ == "__main__":
             res += future.result()
         end = time()
 
-        average_result = (INTEGRATE_TO - INTEGRATE_FROM) * (res / TOTAL_ITERATIONS)
-
-        print(f"Processes: {processes:>2}. Time: {(end - start):.3f} с")
+        print(f"Processes: {processes:>2}. Time: {(end - start):.3f} s")
