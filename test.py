@@ -29,7 +29,7 @@ if __name__ == "__main__":
     f = lambdify(['x'], f)
     print(f"cpu_count = {loky.cpu_count()}\n")
 
-    for processes in [1, 2, 3, 4, 5, 8, 9, 15, 16, 24, 48]:
+    for processes in [1, 2, 3, 4, 5, 6, 8, 9, 12, 15, 16, 24, 48]:
         TOTAL_ITERATIONS = ceil(TOTAL_ITERATIONS / processes) * processes
         per_process = TOTAL_ITERATIONS // processes
 
